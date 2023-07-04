@@ -85,7 +85,7 @@ func (r *Router) Run(addr string) {
 		log.Fatal("Server forced to shutdown:", err)
 	}
 
-	log.Println("Server exiting")
+	log.Println("Existing Server...")
 }
 
 func (r *Router) AddRoute(
@@ -209,7 +209,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 			// After the handler has run, the status code should have been set.
 			// We can store it in the context.
-			status := sw.status
+			status := sw.Status
 			if status == 0 {
 				status = 200 // Default status code is 200 OK
 			}
@@ -219,7 +219,9 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	http.NotFound(w, req)
+	sw := ResponseWriteNex{ResponseWriter: w}
+	c := NewContext(req, sw, nil)
+	http404Handler(c)
 }
 
 // Use - adds a middleware to the router
@@ -232,26 +234,31 @@ func (r *Router) Static(pattern string, dir string) {
 	pattern = path.Join(pattern, "/")
 	fs := http.FileServer(http.Dir(dir))
 	r.GET(pattern+"*", func(ctx *Context) {
-		fs.ServeHTTP(ctx.Res, ctx.Req)
+		fs.ServeHTTP(&ctx.Res, ctx.Req)
 	})
 }
 
-// PrintRoutes - Prints the Routes
-// if file is true, it prints the routes to a file called routes.json in root of the project
-func (r *Router) PrintRoutes(file ...bool) {
+// PrintRouteConfig is a struct that holds configuration options for the PrintRoutes function.
+type PrintRouteConfig struct {
+	WriteToFile bool // If true, the routes will be written to a file called routes.csv in the root of the project.
+}
+
+// PrintRoutes prints the routes to the console and optionally to a file called routes.csv in the root of the project.
+// If the writeToFile parameter in the Config struct is true, the routes will be written to the file.
+func (r *Router) PrintRoutes(config *PrintRouteConfig) {
 	fmt.Println()
 	fmt.Println("Printing routes:")
 	fmt.Println()
-	routes := make([]Route, 0)
+	routes := make([]Route, len(r.Routes))
 	for i, route := range r.Routes {
 		method := color.New(color.FgHiMagenta).Sprintf(" (%s) ", route.Method)
 		index := color.New(color.FgHiMagenta).Sprint(i)
 		fmt.Printf("%s -> %s %s\n", index, route.OrigPath, method)
-		if len(file) > 0 && file[0] {
-			routes = append(routes, *route)
-		}
+		routes[i] = *route
 	}
-	r.writeRouteToFile(&routes)
+	if config != nil && config.WriteToFile {
+		r.writeRouteToFile(&routes)
+	}
 	fmt.Println()
 }
 
@@ -287,8 +294,6 @@ func (r *Router) writeRouteToFile(route *[]Route) {
 	defer f.Close()
 }
 
-//
-
 // RouterGroup represents a group of routes with a common prefix.
 type RouterGroup struct {
 	router     *Router
@@ -305,7 +310,12 @@ func (r *Router) Group(prefix string) *RouterGroup {
 }
 
 // AddRoute adds a new route to the router group.
-func (rg *RouterGroup) AddRoute(method string, pattern string, handler HandlerFunc, middleware ...MiddlewareFunc) {
+func (rg *RouterGroup) AddRoute(
+	method string,
+	pattern string,
+	handler HandlerFunc,
+	middleware ...MiddlewareFunc,
+) {
 	// Ensure prefix and pattern start with "/"
 	if !strings.HasPrefix(rg.prefix, "/") {
 		rg.prefix = "/" + rg.prefix
@@ -345,9 +355,10 @@ func (rg *RouterGroup) PUT(pattern string, handler HandlerFunc, middleware ...Mi
 	rg.AddRoute("PUT", pattern, handler, middleware...)
 }
 
-// PrintRoutes - prints all routes in the router group.
-func (rg *RouterGroup) PrintRoutes(file ...bool) {
-	rg.router.PrintRoutes(file...)
+// PrintRoutes prints all routes in the router group to the console and optionally to a file called routes.csv in the root of the project.
+// If the writeToFile parameter is true, the routes will be written to the file.
+func (rg *RouterGroup) PrintRoutes(config *PrintRouteConfig) {
+	rg.router.PrintRoutes(config)
 }
 
 // Group creates a new RouterGroup with the given prefix.

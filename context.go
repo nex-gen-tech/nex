@@ -10,16 +10,17 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/nex-gen-tech/nex/pkg/nexval"
 )
 
 type ResponseWriteNex struct {
 	http.ResponseWriter
-	status int
+	Status int
 }
 
-func (w ResponseWriteNex) WriteHeader(status int) {
-	w.status = status
+func (w *ResponseWriteNex) WriteHeader(status int) {
+	w.Status = status
 	w.ResponseWriter.WriteHeader(status)
 }
 
@@ -64,7 +65,7 @@ func (c *Context) ResponseJson(status int, data interface{}) {
 	c.Res.Header().Set("Content-Type", "application/json")
 	c.Res.WriteHeader(status)
 	if err := json.NewEncoder(c.Res).Encode(data); err != nil {
-		http.Error(c.Res, err.Error(), http.StatusInternalServerError)
+		http.Error(&c.Res, err.Error(), http.StatusInternalServerError)
 	}
 }
 
@@ -415,7 +416,7 @@ func (c *Context) CookieMustGetBool(key string) bool {
 
 // CookieSet - sets the value of a cookie.
 func (c *Context) CookieSet(key string, value string) {
-	http.SetCookie(c.Res, &http.Cookie{
+	http.SetCookie(&c.Res, &http.Cookie{
 		Name:  key,
 		Value: value,
 	})
@@ -438,7 +439,7 @@ func (c *Context) CookieSetBool(key string, value bool) {
 
 // CookieDelete - deletes a cookie.
 func (c *Context) CookieDelete(key string) {
-	http.SetCookie(c.Res, &http.Cookie{
+	http.SetCookie(&c.Res, &http.Cookie{
 		Name:    key,
 		Value:   "",
 		Expires: time.Unix(0, 0),

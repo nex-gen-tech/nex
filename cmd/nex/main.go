@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/nex-gen-tech/nex"
@@ -87,9 +86,9 @@ func main() {
 
 	v1 := api.Group("v1")
 
-	for i := 1; i <= 1000; i++ {
-		v1.GET(fmt.Sprintf("/user/%d", i), handler)
-	}
+	// for i := 1; i <= 1000; i++ {
+	// 	v1.GET(fmt.Sprintf("/user/%d", i), handler)
+	// }
 
 	v1.POST("/user", CreateUser)
 	user := v1.Group("user")
@@ -97,7 +96,7 @@ func main() {
 		user.GET("/get", handler)
 	}
 
-	api.PrintRoutes(true)
+	api.PrintRoutes(&nex.PrintRouteConfig{WriteToFile: true})
 
 	// Create a new server
 	logger := nexlog.New("New")

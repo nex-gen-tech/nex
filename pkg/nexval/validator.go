@@ -3,6 +3,7 @@ package nexval
 import (
 	"reflect"
 	"strings"
+	"sync"
 )
 
 type ValidationError struct {
@@ -41,36 +42,57 @@ func (v *StructValidator) Validate(s interface{}) []ValidationError {
 		value = value.Elem()
 	}
 
+	// Create a channel to receive validation errors
+	errChan := make(chan ValidationError)
+
+	// Iterate over the fields of the struct in parallel
+	var wg sync.WaitGroup
 	for i := 0; i < value.NumField(); i++ {
-		field := value.Field(i)
-		tag := value.Type().Field(i).Tag.Get("nex")
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
 
-		// Skip if there's no nexVal tag
-		if tag == "" {
-			continue
-		}
+			field := value.Field(i)
+			tag := value.Type().Field(i).Tag.Get("nex")
 
-		// Split the tag into parts
-		parts := strings.Split(tag, ",")
-		for _, part := range parts {
-			rule := part
-			param := ""
-
-			if strings.Contains(part, "=") {
-				ruleParam := strings.Split(part, "=")
-				rule = ruleParam[0]
-				param = ruleParam[1]
-			}
-			validateFunc, ok := validationFuncsMap[rule]
-			if !ok {
-				continue
+			// Skip if there's no nexVal tag
+			if tag == "" {
+				return
 			}
 
-			err := validateFunc(field, param, value.Type().Field(i).Name)
-			if err != nil {
-				errors = append(errors, *err)
+			// Split the tag into parts
+			parts := strings.Split(tag, ",")
+			for _, part := range parts {
+				rule := part
+				param := ""
+
+				if strings.Contains(part, "=") {
+					ruleParam := strings.Split(part, "=")
+					rule = ruleParam[0]
+					param = ruleParam[1]
+				}
+				validateFunc, ok := validationFuncsMap[rule]
+				if !ok {
+					continue
+				}
+
+				err := validateFunc(field, param, value.Type().Field(i).Name)
+				if err != nil {
+					errChan <- *err
+				}
 			}
-		}
+		}(i)
+	}
+
+	// Wait for all goroutines to finish
+	go func() {
+		wg.Wait()
+		close(errChan)
+	}()
+
+	// Collect validation errors from the channel
+	for err := range errChan {
+		errors = append(errors, err)
 	}
 
 	return errors
