@@ -1,6 +1,0 @@
-/hello/world,GET
-/user/:id/:authId,GET
-/user/:id,GET
-/api/rama,GET
-/api/v1/user,POST
-/api/v1/user/get,GET
