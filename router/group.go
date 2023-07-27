@@ -10,7 +10,7 @@ type RouterGroup struct {
 }
 
 // NewGroup initializes a new router group with the provided prefix.
-func (r *Router) NewGroup(prefix string) *RouterGroup {
+func (r *Router) Group(prefix string) *RouterGroup {
 	return &RouterGroup{
 		prefix: prefix,
 		router: r,

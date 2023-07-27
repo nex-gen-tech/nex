@@ -1,9 +1,15 @@
 package router
 
 import (
+	"context"
+	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"github.com/nex-gen-tech/nex/context"
+	nexctx "github.com/nex-gen-tech/nex/context"
 )
 
 const (
@@ -14,10 +20,11 @@ const (
 	MethodPatch  = "PATCH"
 )
 
-type HandlerFunc func(*context.Context)
+type HandlerFunc func(*nexctx.Context)
 
 type Router struct {
-	tree *Tree
+	tree    *Tree
+	Address string
 }
 
 func NewRouter() *Router {
@@ -36,7 +43,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		http.NotFound(w, req)
 		return
 	}
-	ctx := context.NewContext(w, req)
+	ctx := nexctx.NewContext(w, req)
 	for key, value := range params {
 		ctx.Params[key] = value
 	}
@@ -63,6 +70,40 @@ func (r *Router) PATCH(path string, handler HandlerFunc) {
 	r.AddRoute(MethodPatch, path, handler)
 }
 
-func (r *Router) Run(addr string) error {
-	return http.ListenAndServe(addr, r)
+func (r *Router) Run(addr string) {
+	r.Address = addr
+
+	// Define the server
+	s := &http.Server{
+		Addr:    r.Address,
+		Handler: r,
+	}
+
+	// Start the server in a goroutine so that it doesn't block
+	go func() {
+		if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("listen: %s\n", err)
+		}
+	}()
+
+	// Wait for interrupt signal to gracefully shutdown the server with
+	// a timeout of 5 seconds.
+	quit := make(chan os.Signal, 1)
+	// kill (no param) default send syscall.SIGTERM
+	// kill -2 is syscall.SIGINT
+	// kill -9 is syscall. SIGKILL but can"t be caught, so don't need to add it
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutting down server...")
+
+	// The context is used to inform the server it has 5 seconds to finish
+	// the request it is currently handling
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := s.Shutdown(ctx); err != nil {
+		log.Fatal("Server forced to shutdown:", err)
+	}
+
+	log.Println("Existing Server...")
 }
