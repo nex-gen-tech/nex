@@ -1,7 +1,6 @@
 package context
 
 import (
-	"encoding/json"
 	"net/http"
 	"sync"
 
@@ -36,28 +35,6 @@ func NewContext(w http.ResponseWriter, r *http.Request) *Context {
 	ctx.Form = NewForm(&ctx)
 
 	return &ctx
-}
-
-// JSON sends a JSON response with the given status code and payload.
-func (c *Context) JSON(status int, payload interface{}) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.Response.Header().Set("Content-Type", "application/json")
-	c.Response.WriteHeader(status)
-	if err := json.NewEncoder(c.Response).Encode(payload); err != nil {
-		http.Error(c.Response, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-// Text sends a plain text response with the given status code and payload.
-func (c *Context) Text(status int, payload string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.Response.Header().Set("Content-Type", "text/plain")
-	c.Response.WriteHeader(status)
-	c.Response.Write([]byte(payload))
 }
 
 // SetHeader sets a header for the response.

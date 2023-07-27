@@ -19,13 +19,13 @@ func main() {
 
 	// Define a handler
 	handler := func(c *context.Context) {
-		id := c.Params["email"]
+		id := c.PathParam.Get("email")
 
 		data := map[string]any{
 			"message": "Hello " + "name : " + id,
 		}
 
-		c.JSON(http.StatusOK, data)
+		c.Res.JSON(http.StatusOK, data)
 	}
 
 	// Register a route
