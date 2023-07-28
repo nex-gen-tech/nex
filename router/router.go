@@ -2,7 +2,6 @@ package router
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	nexctx "github.com/nex-gen-tech/nex/context"
+	"github.com/nex-gen-tech/nexlog"
 )
 
 const (
@@ -25,11 +25,13 @@ type HandlerFunc func(*nexctx.Context)
 type Router struct {
 	tree    *Tree
 	Address string
+	log     nexlog.Logger
 }
 
 func NewRouter() *Router {
 	return &Router{
 		tree: NewTree(),
+		log:  nexlog.New("[NEX-LOG]"),
 	}
 }
 
@@ -82,7 +84,7 @@ func (r *Router) Run(addr string) {
 	// Start the server in a goroutine so that it doesn't block
 	go func() {
 		if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("listen: %s\n", err)
+			r.log.FatalF("error starting server: %s", err.Error())
 		}
 	}()
 
@@ -94,7 +96,7 @@ func (r *Router) Run(addr string) {
 	// kill -9 is syscall. SIGKILL but can"t be caught, so don't need to add it
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("Shutting down server...")
+	r.log.InfoF("Shutting down server...")
 
 	// The context is used to inform the server it has 5 seconds to finish
 	// the request it is currently handling
@@ -102,8 +104,8 @@ func (r *Router) Run(addr string) {
 	defer cancel()
 
 	if err := s.Shutdown(ctx); err != nil {
-		log.Fatal("Server forced to shutdown:", err)
+		r.log.FatalF("Server forced to shutdown: %s", err.Error())
 	}
 
-	log.Println("Existing Server...")
+	r.log.InfoF("Existing Server...")
 }

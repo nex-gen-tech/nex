@@ -18,6 +18,7 @@ type Context struct {
 	QueryParam *QueryParam
 	Form       *Form
 	mu         sync.RWMutex // Mutex for concurrent access to the context fields
+	Data       map[string]any
 }
 
 // NewContext creates a new instance of Context.
@@ -56,4 +57,26 @@ func (c *Context) GetHeader(key string) string {
 // Validate - validates a struct.with the Go Playground validator v10 package struct tags.
 func (c *Context) Validate(v interface{}) []nexval.ValidationError {
 	return nexval.New().Validate(v)
+}
+
+// Set -Set the data in context
+func (c *Context) Set(key string, value any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.Data == nil {
+		c.Data = make(map[string]any)
+	}
+	c.Data[key] = value
+}
+
+// Get - Get the data from context
+func (c *Context) Get(key string) any {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if c.Data == nil {
+		return nil
+	}
+	return c.Data[key]
 }

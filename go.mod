@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/fatih/color v1.15.0
+	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/gorilla/schema v1.2.0
 	github.com/mitranim/gg v0.1.15
 	github.com/nex-gen-tech/nexlog v1.0.3
