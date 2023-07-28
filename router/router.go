@@ -23,9 +23,10 @@ const (
 type HandlerFunc func(*nexctx.Context)
 
 type Router struct {
-	tree    *Tree
-	Address string
-	log     nexlog.Logger
+	tree         *Tree
+	Address      string
+	log          nexlog.Logger
+	errorHandler func(*nexctx.Context, error)
 }
 
 func NewRouter() *Router {
@@ -35,21 +36,35 @@ func NewRouter() *Router {
 	}
 }
 
+// SetErrorHandler sets a custom error handler for the router.
+func (r *Router) SetErrorHandler(handler func(*nexctx.Context, error)) {
+	r.errorHandler = handler
+}
+
 func (r *Router) AddRoute(method, path string, handler HandlerFunc) {
 	r.tree.AddRoute(method+":"+path, handler)
 }
 
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	ctx := nexctx.NewContext(w, req)
 	handler, params := r.tree.Match(req.Method + ":" + req.URL.Path)
+
 	if handler == nil {
 		http.NotFound(w, req)
 		return
 	}
-	ctx := nexctx.NewContext(w, req)
+
 	for key, value := range params {
 		ctx.Params[key] = value
 	}
+
+	// Execute the handler
 	handler(ctx)
+
+	// Check if an error was set in the context
+	if ctx.Error() != nil && r.errorHandler != nil {
+		r.errorHandler(ctx, ctx.Error())
+	}
 }
 
 func (r *Router) GET(path string, handler HandlerFunc) {

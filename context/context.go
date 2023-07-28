@@ -19,6 +19,7 @@ type Context struct {
 	Form       *Form
 	mu         sync.RWMutex // Mutex for concurrent access to the context fields
 	Data       map[string]any
+	err        error
 }
 
 // NewContext creates a new instance of Context.
@@ -36,6 +37,22 @@ func NewContext(w http.ResponseWriter, r *http.Request) *Context {
 	ctx.Form = NewForm(&ctx)
 
 	return &ctx
+}
+
+// Error returns the error set in the context.
+func (c *Context) Error() error {
+	return c.err
+}
+
+// SetError sets an error in the context.
+func (c *Context) SetError(err error) {
+	c.err = err
+}
+
+// String writes a string response to the client.
+func (c *Context) String(status int, s string) {
+	c.Response.WriteHeader(status)
+	c.Response.Write([]byte(s))
 }
 
 // SetHeader sets a header for the response.
