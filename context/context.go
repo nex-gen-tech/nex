@@ -17,6 +17,7 @@ type Context struct {
 	PathParam  *PathParam
 	QueryParam *QueryParam
 	Form       *Form
+	Body       *Body
 	mu         sync.RWMutex // Mutex for concurrent access to the context fields
 	Data       map[string]any
 	err        error
@@ -35,6 +36,7 @@ func NewContext(w http.ResponseWriter, r *http.Request) *Context {
 	ctx.PathParam = NewPathParam(&ctx)
 	ctx.QueryParam = NewQueryParam(&ctx)
 	ctx.Form = NewForm(&ctx)
+	ctx.Body = NewBody(&ctx)
 
 	return &ctx
 }

@@ -12,7 +12,7 @@ import (
 
 // Logging logs the method, path, request ID, IP, user agent, and time for each request.
 func Logging() router.MiddlewareFunc {
-	logOutput := log.New(os.Stdout, "[NEX-LOG] ", 0)
+	logOutput := log.New(os.Stdout, "NEX-LOG", 0)
 
 	return func(next router.HandlerFunc) router.HandlerFunc {
 		return func(c *context.Context) {

@@ -32,7 +32,7 @@ type Router struct {
 func NewRouter() *Router {
 	return &Router{
 		tree: NewTree(),
-		log:  nexlog.New("[NEX-LOG]"),
+		log:  nexlog.New("NEX-LOG"),
 	}
 }
 
