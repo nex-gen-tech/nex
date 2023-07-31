@@ -28,6 +28,7 @@
         "nexcli",
         "nexctx",
         "nexlog",
+        "nexmiddleware",
         "nexval",
         "printableascii",
         "ptype",

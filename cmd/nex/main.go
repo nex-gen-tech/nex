@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/nex-gen-tech/nex"
-	"github.com/nex-gen-tech/nex/middleware"
+	nexmiddleware "github.com/nex-gen-tech/nex/middleware"
 	"github.com/nex-gen-tech/nexlog"
 )
 
@@ -19,11 +19,11 @@ func main() {
 	r := nex.New()
 
 	// Use nexlog middleware
-	r.Use(middleware.LoggingRouter())
+	r.Use(nexmiddleware.Logging())
 
 	r.GET("/test", func(c *nex.Context) {
 		c.Res.JSON(http.StatusOK, map[string]string{"message": "Test route"})
-	}, middleware.Logging())
+	}, nexmiddleware.Logging())
 
 	// Define a handler
 	handler := func(c *nex.Context) {
@@ -43,7 +43,7 @@ func main() {
 
 	// Api Group
 	api := r.Group("/api")
-	api.Use(middleware.Logging())
+	api.Use(nexmiddleware.Logging())
 
 	// get user
 	api.GET("/user/:id", func(c *nex.Context) {

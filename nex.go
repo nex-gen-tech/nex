@@ -9,6 +9,7 @@ type (
 	Context     = context.Context
 	Router      = router.Router
 	HandlerFunc = router.HandlerFunc
+	RouterGroup = router.RouterGroup
 )
 
 // New - Create a new router
