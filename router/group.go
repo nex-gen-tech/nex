@@ -23,39 +23,33 @@ func (group *RouterGroup) Use(middleware ...MiddlewareFunc) {
 	group.middlewares = append(group.middlewares, middleware...)
 }
 
+// addRoute is an internal method to handle adding routes with the provided method, path, handler, and middlewares.
+func (group *RouterGroup) addRoute(method, path string, handler HandlerFunc, middlewares ...MiddlewareFunc) {
+	allMiddlewares := append(group.middlewares, middlewares...)
+	group.router.AddRoute(method, group.prefix+path, handler, allMiddlewares...)
+}
+
 // GET adds a new route with the GET method to the group.
-func (group *RouterGroup) GET(path string, handler HandlerFunc) {
-	group.router.AddRoute(MethodGet, group.prefix+path, group.applyMiddlewares(handler))
+func (group *RouterGroup) GET(path string, handler HandlerFunc, middlewares ...MiddlewareFunc) {
+	group.addRoute(MethodGet, path, handler, middlewares...)
 }
 
 // POST adds a new route with the POST method to the group.
-func (group *RouterGroup) POST(path string, handler HandlerFunc) {
-	group.router.AddRoute(MethodPost, group.prefix+path, group.applyMiddlewares(handler))
+func (group *RouterGroup) POST(path string, handler HandlerFunc, middlewares ...MiddlewareFunc) {
+	group.addRoute(MethodPost, path, handler, middlewares...)
 }
 
 // PUT adds a new route with the PUT method to the group.
-func (group *RouterGroup) PUT(path string, handler HandlerFunc) {
-	group.router.AddRoute(MethodPut, group.prefix+path, group.applyMiddlewares(handler))
+func (group *RouterGroup) PUT(path string, handler HandlerFunc, middlewares ...MiddlewareFunc) {
+	group.addRoute(MethodPut, path, handler, middlewares...)
 }
 
 // DELETE adds a new route with the DELETE method to the group.
-func (group *RouterGroup) DELETE(path string, handler HandlerFunc) {
-	group.router.AddRoute(MethodDelete, group.prefix+path, group.applyMiddlewares(handler))
+func (group *RouterGroup) DELETE(path string, handler HandlerFunc, middlewares ...MiddlewareFunc) {
+	group.addRoute(MethodDelete, path, handler, middlewares...)
 }
 
 // PATCH adds a new route with the PATCH method to the group.
-func (group *RouterGroup) PATCH(path string, handler HandlerFunc) {
-	group.router.AddRoute(MethodPatch, group.prefix+path, group.applyMiddlewares(handler))
-}
-
-// applyMiddlewares wraps the provided handler with the group's middlewares.
-// It applies the middlewares in the order they were added to the group.
-func (group *RouterGroup) applyMiddlewares(handler HandlerFunc) HandlerFunc {
-	finalHandler := handler
-
-	for i := len(group.middlewares) - 1; i >= 0; i-- {
-		finalHandler = group.middlewares[i](finalHandler)
-	}
-
-	return finalHandler
+func (group *RouterGroup) PATCH(path string, handler HandlerFunc, middlewares ...MiddlewareFunc) {
+	group.addRoute(MethodPatch, path, handler, middlewares...)
 }

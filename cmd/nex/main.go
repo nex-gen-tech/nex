@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/nex-gen-tech/nex"
+	"github.com/nex-gen-tech/nex/middleware"
 	"github.com/nex-gen-tech/nexlog"
 )
 
@@ -16,6 +17,13 @@ type User struct {
 
 func main() {
 	r := nex.New()
+
+	// Use nexlog middleware
+	r.Use(middleware.LoggingRouter())
+
+	r.GET("/test", func(c *nex.Context) {
+		c.Res.JSON(http.StatusOK, map[string]string{"message": "Test route"})
+	}, middleware.Logging())
 
 	// Define a handler
 	handler := func(c *nex.Context) {
@@ -35,6 +43,7 @@ func main() {
 
 	// Api Group
 	api := r.Group("/api")
+	api.Use(middleware.Logging())
 
 	// get user
 	api.GET("/user/:id", func(c *nex.Context) {
