@@ -2,6 +2,7 @@ package router
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -33,13 +34,19 @@ type Router struct {
 	log          nexlog.Logger
 	errorHandler func(*nexctx.Context, error)
 	middlewares  []MiddlewareFunc
+
+	// for route printing
+	printRoutes      bool
+	printMiddlewares bool
 }
 
 // NewRouter returns a new router instance.
 func NewRouter() *Router {
 	return &Router{
-		tree: NewTree(),
-		log:  nexlog.New("NEX-LOG"),
+		tree:             NewTree(),
+		log:              nexlog.New("NEX-LOG"),
+		printRoutes:      false,
+		printMiddlewares: false,
 	}
 }
 
@@ -48,13 +55,37 @@ func (r *Router) SetErrorHandler(handler func(*nexctx.Context, error)) {
 	r.errorHandler = handler
 }
 
+// SetPrintRoutes sets the router to print the registered routes on startup.
+func (r *Router) SetPrintRoutes(print bool) {
+	r.printRoutes = print
+}
+
+// SetPrintMiddlewares sets the router to print the registered middlewares on startup.
+func (r *Router) SetPrintMiddlewares(print bool) {
+	// if printRoutes is false show error message
+	if !r.printRoutes {
+		r.log.Error("please set SetPrintRoutes to true before SetPrintMiddlewares")
+	}
+
+	r.printMiddlewares = print
+}
+
+// Group creates a new router group with the specified prefix.
+func (r *Router) Group(prefix string) *RouterGroup {
+	return &RouterGroup{
+		prefix:      prefix,
+		router:      r,
+		middlewares: make([]MiddlewareFunc, 0),
+	}
+}
+
 // Use appends middleware(s) to the router's middleware stack.
 func (r *Router) Use(middleware ...MiddlewareFunc) {
 	r.middlewares = append(r.middlewares, middleware...)
 }
 
 func (r *Router) AddRoute(method, path string, handler HandlerFunc, middlewares ...MiddlewareFunc) {
-	r.tree.AddRoute(method+":"+path, handler, middlewares...)
+	r.tree.AddRoute(method, method+":"+path, handler, middlewares...)
 }
 
 // ServeHTTP implements the http.Handler interface.
@@ -71,11 +102,17 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		ctx.Params[key] = value
 	}
 
-	allMiddlewares := append(nodeMiddlewares, r.middlewares...)
-	for _, middleware := range allMiddlewares {
-		name := runtime.FuncForPC(reflect.ValueOf(middleware).Pointer()).Name()
+	allMiddlewares := append(r.middlewares, nodeMiddlewares...)
+	// for _, middleware := range allMiddlewares {
+	// 	name := runtime.FuncForPC(reflect.ValueOf(middleware).Pointer()).Name()
+	// 	log.Printf("middleware: %s", name)
+	// 	handler = middleware(handler)
+	// }
+	// reverse the middleware stack
+	for i := len(allMiddlewares) - 1; i >= 0; i-- {
+		name := runtime.FuncForPC(reflect.ValueOf(allMiddlewares[i]).Pointer()).Name()
 		log.Printf("middleware: %s", name)
-		handler = middleware(handler)
+		handler = allMiddlewares[i](handler)
 	}
 
 	// Execute the handler
@@ -113,7 +150,10 @@ func (r *Router) PATCH(path string, handler HandlerFunc, middlewares ...Middlewa
 }
 
 // Run starts the HTTP server.
-func (r *Router) Run(addr string) {
+func (r *Router) Run(addr string) error {
+	// Print the list of registered routes
+	r.tree.root.printRoutes(printRoutesConfig{Prefix: ""})
+
 	r.Address = addr
 
 	// Define the server
@@ -122,11 +162,14 @@ func (r *Router) Run(addr string) {
 		Handler: r,
 	}
 
+	errCh := make(chan error, 1)
+
 	// Start the server in a goroutine so that it doesn't block
 	go func() {
 		if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			r.log.FatalF("error starting server: %s", err.Error())
+			errCh <- fmt.Errorf("error starting server: %s", err.Error())
 		}
+		close(errCh)
 	}()
 
 	// Wait for interrupt signal to gracefully shutdown the server with
@@ -134,19 +177,22 @@ func (r *Router) Run(addr string) {
 	quit := make(chan os.Signal, 1)
 	// kill (no param) default send syscall.SIGTERM
 	// kill -2 is syscall.SIGINT
-	// kill -9 is syscall. SIGKILL but can"t be caught, so don't need to add it
+	// kill -9 is syscall.SIGKILL but can't be caught, so don't need to add it
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-	r.log.InfoF("Shutting down server...")
+	select {
+	case <-quit:
+		// The context is used to inform the server it has 5 seconds to finish
+		// the request it is currently handling
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 
-	// The context is used to inform the server it has 5 seconds to finish
-	// the request it is currently handling
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+		if err := s.Shutdown(ctx); err != nil {
+			return fmt.Errorf("server forced to shutdown: %s", err.Error())
+		}
 
-	if err := s.Shutdown(ctx); err != nil {
-		r.log.FatalF("Server forced to shutdown: %s", err.Error())
+		return nil
+
+	case err := <-errCh:
+		return err
 	}
-
-	r.log.InfoF("Existing Server...")
 }

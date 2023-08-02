@@ -9,11 +9,12 @@ type RouterGroup struct {
 	middlewares []MiddlewareFunc
 }
 
-// NewGroup initializes a new router group with the provided prefix.
-func (r *Router) Group(prefix string) *RouterGroup {
+// Group creates a new sub-group with the given path prefix relative to this group.
+func (group *RouterGroup) Group(prefix string) *RouterGroup {
 	return &RouterGroup{
-		prefix: prefix,
-		router: r,
+		prefix:      group.prefix + prefix,
+		router:      group.router,
+		middlewares: group.middlewares, // inherit the parent's middlewares
 	}
 }
 

@@ -1,4 +1,4 @@
-package nexmiddleware
+package interceptor
 
 import (
 	"compress/gzip"

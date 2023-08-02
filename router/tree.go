@@ -2,6 +2,8 @@ package router
 
 import (
 	"log"
+	"reflect"
+	"runtime"
 	"strings"
 )
 
@@ -12,16 +14,18 @@ type node struct {
 	handler     HandlerFunc
 	param       *paramMatcher
 	middlewares []MiddlewareFunc
+	method      string
 }
 
 // insert inserts a new node in the tree.
-func (n *node) insert(segments []string, handler HandlerFunc, middlewares ...MiddlewareFunc) {
+func (n *node) insert(segments []string, method string, handler HandlerFunc, middlewares ...MiddlewareFunc) {
 	if len(segments) == 0 {
 		n.handler = handler
 		n.middlewares = middlewares
 		return
 	}
 
+	n.method = method
 	segment := segments[0]
 	child := n.matchChild(segment)
 	if child == nil {
@@ -34,7 +38,7 @@ func (n *node) insert(segments []string, handler HandlerFunc, middlewares ...Mid
 		}
 		n.children = append(n.children, child)
 	}
-	child.insert(segments[1:], handler, middlewares...)
+	child.insert(segments[1:], method, handler, middlewares...)
 }
 
 // matchChild matches a child node with the given segment.
@@ -86,9 +90,9 @@ func NewTree() *Tree {
 }
 
 // AddRoute adds a new route to the tree.
-func (t *Tree) AddRoute(path string, handler HandlerFunc, middlewares ...MiddlewareFunc) {
+func (t *Tree) AddRoute(method, path string, handler HandlerFunc, middlewares ...MiddlewareFunc) {
 	segments := splitPath(path)
-	t.root.insert(segments, handler, middlewares...)
+	t.root.insert(segments, method, handler, middlewares...) // Add method here
 }
 
 // Match matches a path against the tree.
@@ -102,4 +106,31 @@ func (t *Tree) Match(path string) (HandlerFunc, map[string]string, []MiddlewareF
 // splitPath splits a path into segments.
 func splitPath(path string) []string {
 	return strings.Split(strings.Trim(path, "/"), "/")
+}
+
+// printRoutes config
+type printRoutesConfig struct {
+	// PrintRoutes prints the routes in the tree.
+	PrintRoutes      bool
+	PrintMiddlewares bool
+	Prefix           string
+}
+
+// printRoutes prints the routes in the tree in a recursive manner.
+func (n *node) printRoutes(config printRoutesConfig) {
+	fullPath := config.Prefix + n.path
+	if n.handler != nil {
+		log.Printf("Route: %s", fullPath)
+		if config.PrintMiddlewares {
+			for _, middleware := range n.middlewares {
+				name := runtime.FuncForPC(reflect.ValueOf(middleware).Pointer()).Name()
+				log.Printf("\tMiddleware: %s", name)
+			}
+		}
+	}
+	for _, child := range n.children {
+		child.printRoutes(printRoutesConfig{
+			Prefix: fullPath + "/",
+		})
+	}
 }

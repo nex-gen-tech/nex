@@ -1,11 +1,11 @@
 package main
 
 import (
-	"fmt"
-	"net/http"
+	"log"
 
 	"github.com/nex-gen-tech/nex"
-	nexmiddleware "github.com/nex-gen-tech/nex/middleware"
+	"github.com/nex-gen-tech/nex/interceptor"
+
 	"github.com/nex-gen-tech/nexlog"
 )
 
@@ -18,67 +18,22 @@ type User struct {
 func main() {
 	r := nex.New()
 
-	// Use nexlog middleware
-	r.Use(nexmiddleware.Logging())
+	r.Use(interceptor.TestOne())
 
-	r.GET("/test", func(c *nex.Context) {
-		c.Res.JSON(http.StatusOK, map[string]string{"message": "Test route"})
-	}, nexmiddleware.Logging())
+	group1 := r.Group("/group1")
+	group1.Use(interceptor.TestTwo())
 
-	// Define a handler
-	handler := func(c *nex.Context) {
-		id := c.PathParam.Get("email")
+	group2 := group1.Group("/group2")
+	group2.Use(interceptor.TestThree())
 
-		data := map[string]any{
-			"message": "Hello " + "name : " + id,
-		}
+	group3 := group2.Group("/group3")
+	group3.Use(interceptor.TestFour())
 
-		c.Res.JSON(http.StatusOK, data)
-	}
+	group4 := group3.Group("/group4")
+	group4.Use(interceptor.TestFive())
 
-	// Register a route
-	// r.GET("/hello/world/:id", handler)
-	// A get path with params of regex which can match only email
-	r.GET("/hello/world/:email([a-zA-Z0-9]+@[a-zA-Z0-9]+\\.[a-zA-Z0-9]+)", handler)
-
-	// Api Group
-	api := r.Group("/api")
-	api.Use(nexmiddleware.Logging())
-
-	// get user
-	api.GET("/user/:id", func(c *nex.Context) {
-		id := c.PathParam.Get("id")
-
-		// get is_active query param
-		isActive, err := c.QueryParam.GetAsBool("is_active")
-		if err != nil {
-			c.Res.JsonBadRequest400("is_active query param is not a boolean")
-			return
-		}
-
-		data := map[string]any{
-			"message":   "Hello " + "name : " + id,
-			"is_active": isActive,
-		}
-
-		c.Res.JsonOk200(data, "user fetched successfully")
-	})
-
-	// create user
-	api.POST("/user", func(c *nex.Context) {
-		var user User
-		if err := c.Body.ParseJSON(&user); err != nil {
-			c.Res.JsonBadRequest400("invalid json body")
-			return
-		}
-
-		// validate user
-		if err := c.Validate(&user); err != nil {
-			c.Res.JsonBadRequest400(fmt.Sprintf("invalid user: %v", err[0]))
-			return
-		}
-
-		c.Res.JsonOk200(user, "user created successfully")
+	group4.GET("/test", func(c *nex.Context) {
+		c.Res.JsonOk200(nil, "Hello from test route")
 	})
 
 	// Create a new server
@@ -86,5 +41,7 @@ func main() {
 
 	logger.InfoF("Starting server on port %s", ":8080")
 
-	r.Run(":8080")
+	if err := r.Run(":8080"); err != nil {
+		log.Fatalf("Failed to run server: %v", err)
+	}
 }
